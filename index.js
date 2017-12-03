@@ -140,7 +140,7 @@ RFRemote.prototype._fanOn = function(on, callback) {
           this.log('RFRemote failed: %s', error.message);
           callback(error);
         } else {
-          debug('RFRemote succeeded!', this.url);
+        //  debug('RFRemote succeeded!', this.url);
           callback();
         }
       }.bind(this));
@@ -154,7 +154,7 @@ RFRemote.prototype._fanOn = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         callback();
       }
     }.bind(this));
@@ -170,7 +170,7 @@ RFRemote.prototype._fanSpeed = function(value, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         callback();
       }
     }.bind(this));
@@ -194,7 +194,7 @@ RFRemote.prototype._lightOn = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         callback();
       }
     }.bind(this));
@@ -204,7 +204,7 @@ RFRemote.prototype._lightOn = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         callback();
       }
     }.bind(this));
@@ -222,7 +222,7 @@ RFRemote.prototype._summerSetting = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         callback();
       }
     }.bind(this));
@@ -233,7 +233,7 @@ RFRemote.prototype._summerSetting = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         callback();
       }
     }.bind(this));
@@ -271,7 +271,7 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         callback();
       }
     }.bind(this));
@@ -284,7 +284,7 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         callback();
       }
     }.bind(this));
@@ -307,7 +307,7 @@ RFRemote.prototype._setState = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         var current = this._fan.getCharacteristic(Characteristic.RotationSpeed)
           .value;
         if (current != this.start && this.start != undefined) {
@@ -323,7 +323,7 @@ RFRemote.prototype._setState = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        debug('RFRemote succeeded!', this.url);
+      //  debug('RFRemote succeeded!', this.url);
         callback();
       }
     }.bind(this));
@@ -364,12 +364,12 @@ RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, call
   //debug("url",url,"Data",data);
   // Content-Length is a workaround for a bug in both request and ESP8266WebServer - request uses lower case, and ESP8266WebServer only uses upper case
 
-  debug("HttpRequest", name, url, count, sleep);
+  //debug("HttpRequest", name, url, count, sleep);
 
   //debug("time",Date.now()," ",this.working);
 
   if (Date.now() > this.working) {
-    this.working = Date.now() + sleep * count;
+  //  this.working = Date.now() + sleep * count;
 
     var data = _buildBody(this, command);
 
@@ -390,7 +390,7 @@ RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, call
       },
       function(error, response, body) {
         if (response) {
-          debug("Response", response.statusCode, response.statusMessage);
+        //  debug("Response", response.statusCode, response.statusMessage);
         } else {
           debug("Error", name, url, count, sleep, callback, error);
         }
