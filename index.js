@@ -4,7 +4,7 @@
 //          "accessory": "http-rf-fan-remote",
 //          "name": "Power",
 //	  "url": "http://ESP_869815/msg?repeat=2&rdelay=100&pdelay=1&address=16388&code=538BC81:PANASONIC:48",
-//    "fan_code": "1011100101100100"  // 16 Bits
+//    "remote_code": "1011100101100100"  // 16 Bits
 //    "dimmable": true
 //    "summer": "01"
 //        }
@@ -28,7 +28,13 @@ var fanCommands = {
   lightD: "111110",
   reverse: "111011",
   lightND: "111110",
-  sync: "111111"
+  sync: "111111",
+  zero: ["200", "700"],
+  one: ["700", "200"],
+  summer: "10",
+  winter: "00",
+  pulse: 10,
+  pdelay: 30
 }
 
 module.exports = function(homebridge) {
@@ -62,7 +68,7 @@ function RFRemote(log, config) {
   // Below are the legacy settings
 
   this.stateful = config.stateful || false;
-  this.on_busy = config.on_busy || 5;
+  this.on_busy = config.on_busy || 1;
   this.off_busy = config.off_busy || 1;
   this.down_busy = config.down_busy || 1;
   this.up_busy = config.up_busy || 1;
@@ -108,8 +114,8 @@ function RFRemote(log, config) {
   debug("Add Summer", this.name);
 
   this._summer = new Service.Switch(this.name + " Summer");
-//  this._summer.getCharacteristic(Characteristic.On)
-//    .on('set', this._summer.bind(this));
+  //  this._summer.getCharacteristic(Characteristic.On)
+  //    .on('set', this._summer.bind(this));
 
   if (this.start == undefined && this.on_data && this.up_data)
     this.resetDevice();
@@ -216,7 +222,7 @@ RFRemote.prototype._summer = function(on, callback) {
   this.log("Setting " + this.name + " to " + on);
 
   if (on) {
-    this.summer = "10";
+    this.summer = fanCommands.summer;
     this.httpRequest("toggle", this.url, fanCommands.reverse, 1, this.on_busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
@@ -227,7 +233,7 @@ RFRemote.prototype._summer = function(on, callback) {
       }
     }.bind(this));
   } else {
-    this.summer = "00";
+    this.summer = fanCommands.winter;
     this.httpRequest("toggle", this.url, fanCommands.reverse, 1, this.on_busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
@@ -360,7 +366,7 @@ RFRemote.prototype.resetDevice = function() {
 
 }
 
-RFRemote.prototype.httpRequest = function(name, url, data, count, sleep, callback) {
+RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, callback) {
   //debug("url",url,"Data",data);
   // Content-Length is a workaround for a bug in both request and ESP8266WebServer - request uses lower case, and ESP8266WebServer only uses upper case
 
@@ -371,67 +377,82 @@ RFRemote.prototype.httpRequest = function(name, url, data, count, sleep, callbac
   if (Date.now() > this.working) {
     this.working = Date.now() + sleep * count;
 
-    if (data) {
+    var data = _buildBody(this, command);
 
-  //    data[0].repeat = count;
-  //    data[0].rdelay = this.rdelay;
+    data[0].repeat = count;
+    data[0].rdelay = this.rdelay;
 
-      var body = JSON.stringify(buildBody(command));
-      //      debug("Body", body);
-      request({
-          url: url,
-          method: "POST",
-          timeout: 5000,
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': body.length
-          },
-          body: body
+    var body = JSON.stringify(data);
+    debug("Body", body);
+    request({
+        url: url,
+        method: "POST",
+        timeout: 5000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': body.length
         },
-        function(error, response, body) {
-          if (response) {
-            debug("Response", response.statusCode, response.statusMessage);
-          } else {
-            debug("Error", name, url, count, sleep, callback, error);
-          }
+        body: body
+      },
+      function(error, response, body) {
+        if (response) {
+          debug("Response", response.statusCode, response.statusMessage);
+        } else {
+          debug("Error", name, url, count, sleep, callback, error);
+        }
 
-          if (callback) callback(error, response, body);
-        }.bind(this));
-    } else {
-      // Simple URL Format
-      request({
-          url: url,
-          method: "GET",
-          timeout: 500
-        },
-        function(error, response, body) {
-          if (response) {
-            debug("Response", response.statusCode, response.statusMessage);
-          } else {
-            debug("Error", error);
-          }
+        if (callback) callback(error, response, body);
+      }.bind(this));
 
-          if (callback) callback(error, response, body);
-        })
-    }
   } else {
     debug("NODEMCU is busy", name);
     if (callback) callback(new Error("Device Busy"));
   }
 }
 
-function buildBody(command) {
+function _buildBody(that, command) {
   // This is the command structure for
-  var remoteCommand = "0" + this.summer + this.remote_code + fanCommands.dimmable + command;
-  debug("This is the command", remoteCommand);
+  // debug("This", that);
+  var remoteCommand = "0" + that.summer + that.remote_code + fanCommands.dimmable + command;
+  debug("This is the command", _splitAt8(remoteCommand));
+
+  var data = [];
+  for (var x = 0; x < remoteCommand.length; x++) {
+    switch (remoteCommand.charAt(x)) {
+      case "0":
+        for (var y = 0; y < fanCommands.zero.length; y++) {
+          data.push(fanCommands.zero[y]);
+        }
+        break;
+      case "1":
+        for (var y = 0; y < fanCommands.zero.length; y++) {
+          data.push(fanCommands.one[y]);
+        }
+        break;
+      default:
+        that.log("Missing 1 or 0", remoteCommand);
+        break;
+    }
+  }
+
   var body = [{
     "type": "raw",
-    "out": this.out,
+    "out": that.out,
     "khz": 500,
-    "data": [200, 700, 700, 200, 700, 200, 700, 200, 200, 700, 700, 200, 200, 700, 200, 700, 200, 700, 700, 200, 200, 700, 700, 200, 700, 200, 700, 200, 200, 700, 200, 700, 200, 700, 700, 200, 700, 200, 200, 700, 700, 200, 700, 200, 700, 200],
-    "pulse": 10,
-    "pdelay": 30
+    "data": data,
+    "pulse": fanCommands.pulse,
+    "pdelay": fanCommands.pdelay
   }];
-  debug("This is the body", body);
+  //debug("This is the body", body);
   return body;
+}
+
+function _splitAt8(string) {
+  var response = "";
+  for (var x = 0; x < string.length; x++) {
+    if (x % 8 === 0)
+      response += " ";
+    response += string.charAt(x);
+  }
+  return response;
 }
