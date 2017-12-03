@@ -34,7 +34,10 @@ var fanCommands = {
   summer: "10",
   winter: "00",
   pulse: 10,
-  pdelay: 30
+  pdelay: 30,
+  rdeley: 600,
+  busy: 1,
+  start: 25
 }
 
 module.exports = function(homebridge) {
@@ -51,8 +54,8 @@ function RFRemote(log, config) {
 
   this.remote_code = config.remote_code;
   this.url = config.url;
-  this.dimmable = config.dimmable || true;
-  this.summer = config.summer || "10";
+  this.dimmable = config.dimmable || false;
+  this.summer = config.summer || true;
   this.out = config.out || 1;
 
   //
@@ -72,7 +75,7 @@ function RFRemote(log, config) {
   this.off_busy = config.off_busy || 1;
   this.down_busy = config.down_busy || 1;
   this.up_busy = config.up_busy || 1;
-  this.rdelay = config.rdelay || 600;
+
   this.on_data = config.on_data;
   this.off_data = config.off_data;
   this.up_data = config.up_data;
@@ -89,8 +92,6 @@ function RFRemote(log, config) {
   this._fan.getCharacteristic(Characteristic.On)
     .on('set', this._fanOn.bind(this));
 
-  // Using RotationSpeed as a placeholder for up/down control
-
   this._fan
     .addCharacteristic(new Characteristic.RotationSpeed())
     .on('set', this._fanSpeed.bind(this))
@@ -98,24 +99,25 @@ function RFRemote(log, config) {
       minStep: 25
     });
 
-  if (this.start) {
-    this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(this.start);
-  }
+  this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(fanCommands.start);
 
   debug("Adding Light", this.name);
   this._light = new Service.Lightbulb(this.name);
   this._light.getCharacteristic(Characteristic.On)
     .on('set', this._lightOn.bind(this));
 
-  this._light
-    .addCharacteristic(new Characteristic.Brightness())
-    .on('set', this._lightBrightness.bind(this));
+  if (this.dimmable) {
+    this._light
+      .addCharacteristic(new Characteristic.Brightness())
+      .on('set', this._lightBrightness.bind(this));
+  }
 
   debug("Add Summer", this.name);
-
   this._summer = new Service.Switch(this.name + " Summer");
-  //  this._summer.getCharacteristic(Characteristic.On)
-  //    .on('set', this._summer.bind(this));
+  this._summer.getCharacteristic(Characteristic.On)
+    .on('set', this._summerSetting.bind(this));
+
+  this._summer.getCharacteristic(Characteristic.On).updateValue(this.summer);
 
   if (this.start == undefined && this.on_data && this.up_data)
     this.resetDevice();
@@ -128,21 +130,26 @@ RFRemote.prototype.getServices = function() {
 
 RFRemote.prototype._fanOn = function(on, callback) {
 
-  this.log("Setting " + this.name + " to " + on);
+  this.log("Setting " + this.name + " _fanOn to " + on);
 
   if (on) {
-
-    this.httpRequest("toggle", this.url, fanCommands.fan25, 1, this.on_busy, function(error, response, responseBody) {
-      if (error) {
-        this.log('RFRemote failed: %s', error.message);
-        callback(error);
-      } else {
-        debug('RFRemote succeeded!', this.url);
-        callback();
-      }
-    }.bind(this));
+    // Is the fan already on?  Don't repeat command
+    if (!this._fan.getCharacteristic(Characteristic.On).value) {
+      this.httpRequest("toggle", this.url, _fanSpeed(this._fan.getCharacteristic(Characteristic.RotationSpeed).value), 1, fanCommands.busy, function(error, response, responseBody) {
+        if (error) {
+          this.log('RFRemote failed: %s', error.message);
+          callback(error);
+        } else {
+          debug('RFRemote succeeded!', this.url);
+          callback();
+        }
+      }.bind(this));
+    } else {
+      debug('Fan already on', this.url);
+      callback();
+    }
   } else {
-    this.httpRequest("toggle", this.url, fanCommands.fan0, 1, this.on_busy, function(error, response, responseBody) {
+    this.httpRequest("toggle", this.url, fanCommands.fan0, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -156,46 +163,33 @@ RFRemote.prototype._fanOn = function(on, callback) {
 
 RFRemote.prototype._fanSpeed = function(value, callback) {
 
-  this.log("Setting " + this.name + " to " + value);
-
-  var command;
-  switch (true) {
-    case (value < 15):
-      command = fanCommands.fan0;
-      break;
-    case (value < 40):
-      command = fanCommands.fan25;
-      break;
-    case (value < 65):
-      command = fanCommands.fan50;
-      break;
-    case (value < 90):
-      command = fanCommands.fan75;
-      break;
-    case (value < 101):
-      command = fanCommands.fan100;
-      break;
+  if (value > 0) {
+    this.log("Setting " + this.name + " _fanSpeed to " + value);
+    this.httpRequest("toggle", this.url, _fanSpeed(value), 1, fanCommands.busy, function(error, response, responseBody) {
+      if (error) {
+        this.log('RFRemote failed: %s', error.message);
+        callback(error);
+      } else {
+        debug('RFRemote succeeded!', this.url);
+        callback();
+      }
+    }.bind(this));
+  } else {
+    this.log("Not setting " + this.name + " _fanSpeed to " + value);
+    setTimeout(function() {
+      this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(fanCommands.start);
+    }.bind(this), 100);
+    callback();
   }
-
-  this.httpRequest("toggle", this.url, command, 1, this.on_busy, function(error, response, responseBody) {
-    if (error) {
-      this.log('RFRemote failed: %s', error.message);
-      callback(error);
-    } else {
-      debug('RFRemote succeeded!', this.url);
-      callback();
-    }
-  }.bind(this));
-
 }
 
 RFRemote.prototype._lightOn = function(on, callback) {
 
-  this.log("Setting " + this.name + " to " + on);
+  this.log("Setting " + this.name + " _lightOn to " + on);
 
   if (on) {
 
-    this.httpRequest("toggle", this.url, fanCommands.light, 1, this.on_busy, function(error, response, responseBody) {
+    this.httpRequest("toggle", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -205,7 +199,7 @@ RFRemote.prototype._lightOn = function(on, callback) {
       }
     }.bind(this));
   } else {
-    this.httpRequest("toggle", this.url, fanCommands.light, 1, this.on_busy, function(error, response, responseBody) {
+    this.httpRequest("toggle", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -217,13 +211,13 @@ RFRemote.prototype._lightOn = function(on, callback) {
   }
 }
 
-RFRemote.prototype._summer = function(on, callback) {
+RFRemote.prototype._summerSetting = function(on, callback) {
 
-  this.log("Setting " + this.name + " to " + on);
+  this.log("Setting " + this.name + " _summerSetting to " + on);
 
   if (on) {
-    this.summer = fanCommands.summer;
-    this.httpRequest("toggle", this.url, fanCommands.reverse, 1, this.on_busy, function(error, response, responseBody) {
+    this.summer = true;
+    this.httpRequest("toggle", this.url, fanCommands.reverse, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -233,8 +227,8 @@ RFRemote.prototype._summer = function(on, callback) {
       }
     }.bind(this));
   } else {
-    this.summer = fanCommands.winter;
-    this.httpRequest("toggle", this.url, fanCommands.reverse, 1, this.on_busy, function(error, response, responseBody) {
+    this.summer = false;
+    this.httpRequest("toggle", this.url, fanCommands.reverse, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -250,7 +244,7 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
 
   //debug("Device", this._fan);
 
-  this.log("Setting " + this.name + " to " + value);
+  this.log("Setting " + this.name + " _lightBrightness to " + value);
 
   var current = this._fan.getCharacteristic(Characteristic.RotationSpeed)
     .value;
@@ -272,7 +266,7 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
   if (delta < 0) {
     // Turn down device
     this.log("Turning down " + this.name + " by " + Math.abs(delta));
-    this.httpRequest("down", this.url, this.down_data, Math.abs(delta) + this.count, this.down_busy, function(error, response, responseBody) {
+    this.httpRequest("down", this.url, this.down_data, Math.abs(delta) + this.count, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -285,7 +279,7 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
 
     // Turn up device
     this.log("Turning up " + this.name + " by " + Math.abs(delta));
-    this.httpRequest("up", this.url, this.up_data, Math.abs(delta) + this.count, this.up_busy, function(error, response, responseBody) {
+    this.httpRequest("up", this.url, this.up_data, Math.abs(delta) + this.count, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -308,7 +302,7 @@ RFRemote.prototype._setState = function(on, callback) {
   debug("_setState", this.name, on, this._fan.getCharacteristic(Characteristic.On).value);
 
   if (on && !this._fan.getCharacteristic(Characteristic.On).value) {
-    this.httpRequest("on", this.url, this.on_data, 1, this.on_busy, function(error, response, responseBody) {
+    this.httpRequest("on", this.url, this.on_data, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -324,7 +318,7 @@ RFRemote.prototype._setState = function(on, callback) {
       }
     }.bind(this));
   } else if (!on && this._fan.getCharacteristic(Characteristic.On).value) {
-    this.httpRequest("off", this.url, this.off_data, 1, this.off_busy, function(error, response, responseBody) {
+    this.httpRequest("off", this.url, this.off_data, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -341,26 +335,26 @@ RFRemote.prototype._setState = function(on, callback) {
 
 RFRemote.prototype.resetDevice = function() {
   debug("Reseting volume on device", this.name);
-  this.httpRequest("on", this.url, this.on_data, 1, this.on_busy, function(error, response, responseBody) {
+  this.httpRequest("on", this.url, this.on_data, 1, fanCommands.busy, function(error, response, responseBody) {
 
     setTimeout(function() {
-      this.httpRequest("down", this.url, this.down_data, this.steps, this.down_busy, function(error, response, responseBody) {
+      this.httpRequest("down", this.url, this.down_data, this.steps, fanCommands.busy, function(error, response, responseBody) {
 
         setTimeout(function() {
-          this.httpRequest("up", this.url, this.up_data, 2, this.up_busy, function(error, response, responseBody) {
+          this.httpRequest("up", this.url, this.up_data, 2, fanCommands.busy, function(error, response, responseBody) {
 
             setTimeout(function() {
-              this.httpRequest("off", this.url, this.off_data, 1, this.off_busy, function(error, response, responseBody) {
+              this.httpRequest("off", this.url, this.off_data, 1, fanCommands.busy, function(error, response, responseBody) {
                 this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(2);
               }.bind(this));
-            }.bind(this), this.off_busy);
+            }.bind(this), fanCommands.busy);
 
           }.bind(this));
 
-        }.bind(this), this.steps * this.down_busy);
+        }.bind(this), this.steps * fanCommands.busy);
       }.bind(this));
 
-    }.bind(this), this.on_busy);
+    }.bind(this), fanCommands.busy);
   }.bind(this));
 
 
@@ -380,7 +374,7 @@ RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, call
     var data = _buildBody(this, command);
 
     data[0].repeat = count;
-    data[0].rdelay = this.rdelay;
+    data[0].rdelay = fanCommands.rdelay;
 
     var body = JSON.stringify(data);
     debug("Body", body);
@@ -413,7 +407,14 @@ RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, call
 function _buildBody(that, command) {
   // This is the command structure for
   // debug("This", that);
-  var remoteCommand = "0" + that.summer + that.remote_code + fanCommands.dimmable + command;
+
+  if (that.summer) {
+    var summer = fanCommands.summer;
+  } else {
+    var summer = fanCommands.winter;
+  }
+
+  var remoteCommand = "0" + summer + that.remote_code + fanCommands.dimmable + command;
   debug("This is the command", _splitAt8(remoteCommand));
 
   var data = [];
@@ -455,4 +456,27 @@ function _splitAt8(string) {
     response += string.charAt(x);
   }
   return response;
+}
+
+function _fanSpeed(speed) {
+  debug("Fan Speed", speed);
+  var command;
+  switch (true) {
+    case (speed < 15):
+      command = fanCommands.fan0;
+      break;
+    case (speed < 40):
+      command = fanCommands.fan25;
+      break;
+    case (speed < 65):
+      command = fanCommands.fan50;
+      break;
+    case (speed < 90):
+      command = fanCommands.fan75;
+      break;
+    case (speed < 101):
+      command = fanCommands.fan100;
+      break;
+  }
+  return command;
 }
