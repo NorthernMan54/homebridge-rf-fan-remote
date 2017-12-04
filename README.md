@@ -1,8 +1,18 @@
 # homebridge-rf-fan-remote Plugin
 
+![costco-com-ceiling-fans- -best-of-ge-52-savanna-led-ceiling-fan-condo-pinterest-ceiling-fans- -costco-com-ceiling-fans](https://user-images.githubusercontent.com/19808920/33534751-8e1d49ae-d877-11e7-88ed-f0be6097d82e.jpg)
+
 [![NPM Downloads](https://img.shields.io/npm/dm/homebridge-rf-fan-remote.svg?style=flat)](https://npmjs.org/package/homebridge-rf-fan-remote)
 
+![costco-canada-east-secret-items-apr-17-2017-to-apr-23-throughout-best-of-ceiling-fans-costco](https://user-images.githubusercontent.com/19808920/33534765-9a6058c8-d877-11e7-95ac-e7aa88b3680a.jpg)
+
+![ge remote control](https://user-images.githubusercontent.com/19808920/33534890-52a6856a-d878-11e7-9e0d-cb5eace6d625.jpg)
+
+![img_1632](https://user-images.githubusercontent.com/19808920/33534893-555d872c-d878-11e7-9351-683fe568c716.JPG)
+
 I wrote this plugin as a wrapper around mdhiggins ESP8266-HTTP-IR-Blaster to control my GE Ceiling fan. This particular fan uses a 315Mhz RF Remote control with the Model FAN61T-4SP. To use this plugin, you need to build this ESP8266 based IR Blaster device https://github.com/mdhiggins/ESP8266-HTTP-IR-Blaster, except you need to substitute the LED with a 315Mhz RF Transmitter module.
+
+![img_1611](https://user-images.githubusercontent.com/19808920/33053269-aee42054-ce40-11e7-9c74-7fee8e975782.JPG)
 
 # Installation
 
