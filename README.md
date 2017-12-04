@@ -10,8 +10,6 @@ I wrote this plugin as a wrapper around mdhiggins ESP8266-HTTP-IR-Blaster to con
 
 # configuration
 
-The configuration is very straight forward, you need just a Button name and the URL to control the blaster.  
-
 Example config.json:
 
 ```
@@ -20,7 +18,7 @@ Example config.json:
  "url": "http://192.168.1.175/json?simple=1",
  "remote_code": "1011100101100100",
  "dimmable": true,
- "summer": "01"
+ "winter": true
 ```
 
 ## Required settings
@@ -33,12 +31,18 @@ Example config.json:
 ## Optional settings
 
 * "dimmable" - Is the dimmable, defaults to false
-* "summer" - Is the fan in summer mode, defaults to true
+* "winter" - Is the fan in winter mode, defaults to true
 * "out"     - out setting for IR Blaster, defaults to 1
 
 # Finding remote code for your remote / fan
 
-To find the remote code for fan, I used an RTL_SDR and rtl_433.  TBD
+To find the remote code for fan, I used an RTL_SDR and rtl_433.
+
+Code/rtl_433-master/build/src/rtl_433 -f 314938000 -a
+
+[03] {26} 17 2c 8f 80 : 00010111 00101100 10001111 10
+
+remote_code starts at bit 4, and is 16 bits long
 
 # Credits
 
