@@ -90,7 +90,7 @@ function RFRemote(log, config) {
 
 
   debug("Adding Fan", this.name);
-  this._fan = new Service.Fan(this.name);
+  this._fan = new Service.Fan(this.name+" fan");
   this._fan.getCharacteristic(Characteristic.On)
     .on('set', this._fanOn.bind(this));
 
@@ -110,7 +110,7 @@ function RFRemote(log, config) {
   this._fan.getCharacteristic(Characteristic.RotationDirection).updateValue(this.direction);
 
   debug("Adding Light", this.name);
-  this._light = new Service.Lightbulb(this.name);
+  this._light = new Service.Lightbulb(this.name+" light");
   this._light.getCharacteristic(Characteristic.On)
     .on('set', this._lightOn.bind(this));
 
