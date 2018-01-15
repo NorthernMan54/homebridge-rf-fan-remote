@@ -17,6 +17,8 @@
 var debug = require('debug')('RFRemote');
 var request = require("request");
 var Service, Characteristic;
+var os = require("os");
+var hostname = os.hostname();
 
 var fanCommands = {
   fan0: "111101",
@@ -90,7 +92,7 @@ function RFRemote(log, config) {
 
 
   debug("Adding Fan", this.name);
-  this._fan = new Service.Fan(this.name+" fan");
+  this._fan = new Service.Fan(this.name + " fan");
   this._fan.getCharacteristic(Characteristic.On)
     .on('set', this._fanOn.bind(this));
 
@@ -110,7 +112,7 @@ function RFRemote(log, config) {
   this._fan.getCharacteristic(Characteristic.RotationDirection).updateValue(this.direction);
 
   debug("Adding Light", this.name);
-  this._light = new Service.Lightbulb(this.name+" light");
+  this._light = new Service.Lightbulb(this.name + " light");
   this._light.getCharacteristic(Characteristic.On)
     .on('set', this._lightOn.bind(this));
 
@@ -126,7 +128,15 @@ function RFRemote(log, config) {
 }
 
 RFRemote.prototype.getServices = function() {
-  return [this._fan, this._light];
+  var informationService = new Service.AccessoryInformation();
+
+  informationService
+    .setCharacteristic(Characteristic.Manufacturer, "NorthernMan54")
+    .setCharacteristic(Characteristic.Model, this.service)
+    .setCharacteristic(Characteristic.SerialNumber, hostname + "-" + this.name)
+    .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version);
+    
+  return [this._fan, this._light, informationService];
 }
 
 RFRemote.prototype._fanOn = function(on, callback) {
