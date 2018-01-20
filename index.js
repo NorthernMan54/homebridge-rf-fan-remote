@@ -9,7 +9,8 @@
 //    "direction": true
 //        }
 
-
+// Winter = Clockwise = 0
+// Summer = CounterClockwise = 1
 
 
 "use strict";
@@ -37,9 +38,9 @@ var fanCommands = {
   one: ["700", "300"],
   winter: "10",
   summer: "00",
-  pulse: 10,
-  pdelay: 30,
-  rdeley: 600,
+  pulse: 6,
+  pdelay: 8,
+  rdelay: 600,
   busy: 1,
   start: 25
 }
@@ -59,7 +60,7 @@ function RFRemote(log, config) {
   this.remote_code = config.remote_code;
   this.url = config.url;
   this.dimmable = config.dimmable || false;
-  this.direction = config.winter || true;
+  this.direction = false;
   this.out = config.out || 1;
 
   //
@@ -109,6 +110,7 @@ function RFRemote(log, config) {
 
   this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(fanCommands.start);
 
+  debug("Setting direction to",this.direction);
   this._fan.getCharacteristic(Characteristic.RotationDirection).updateValue(this.direction);
 
   debug("Adding Light", this.name);
@@ -135,7 +137,7 @@ RFRemote.prototype.getServices = function() {
     .setCharacteristic(Characteristic.Model, this.service)
     .setCharacteristic(Characteristic.SerialNumber, hostname + "-" + this.name)
     .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version);
-    
+
   return [this._fan, this._light, informationService];
 }
 
@@ -226,8 +228,8 @@ RFRemote.prototype._fanDirection = function(on, callback) {
 
   this.log("Setting " + this.name + " _summerSetting to " + on);
 
-  if (on) {
-    this.direction = true;
+  if (!on) {
+    this.direction = false;
     this.httpRequest("direction", this.url, fanCommands.reverse, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
@@ -238,7 +240,8 @@ RFRemote.prototype._fanDirection = function(on, callback) {
       }
     }.bind(this));
   } else {
-    this.direction = false;
+    // counterclockwise
+    this.direction = true;
     this.httpRequest("direction", this.url, fanCommands.forward, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
@@ -388,7 +391,7 @@ RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, call
     data[0].rdelay = fanCommands.rdelay;
 
     var body = JSON.stringify(data);
-    debug("Body", body);
+//    debug("Body", body);
     request({
         url: url,
         method: "POST",
@@ -420,12 +423,14 @@ function _buildBody(that, command) {
   // debug("This", that);
 
   if (that.direction) {
-    var summer = fanCommands.summer;
+    debug("CounterClockwise");
+    var direction = fanCommands.winter;
   } else {
-    var summer = fanCommands.winter;
+    debug("Clockwise");
+    var direction = fanCommands.summer;
   }
 
-  var remoteCommand = "0" + summer + that.remote_code + fanCommands.dimmable + command;
+  var remoteCommand = "0" + direction + that.remote_code + fanCommands.dimmable + command;
   debug("This is the command", _splitAt8(remoteCommand));
 
   var data = [];
