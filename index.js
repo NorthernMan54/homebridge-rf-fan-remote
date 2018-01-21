@@ -40,7 +40,7 @@ var fanCommands = {
   summer: "00",
   pulse: 6,
   pdelay: 8,
-  rdelay: 600,
+  rdelay: 8,
   busy: 1,
   start: 25
 }
@@ -59,8 +59,8 @@ function RFRemote(log, config) {
 
   this.remote_code = config.remote_code;
   this.url = config.url;
-  this.dimmable = config.dimmable || false;
-  this.direction = false;
+  this.dimmable = true; // Fan only responds if dimmable = true
+  this.direction = config.summer || false;
   this.out = config.out || 1;
 
   //
@@ -92,7 +92,7 @@ function RFRemote(log, config) {
   this.working = Date.now();
 
 
-  debug("Adding Fan", this.name);
+  debug(this.name, "Adding", this.name + " fan");
   this._fan = new Service.Fan(this.name + " fan");
   this._fan.getCharacteristic(Characteristic.On)
     .on('set', this._fanOn.bind(this));
@@ -110,19 +110,21 @@ function RFRemote(log, config) {
 
   this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(fanCommands.start);
 
-  debug("Setting direction to",this.direction);
+  debug(this.name, "Setting direction to", this.direction);
   this._fan.getCharacteristic(Characteristic.RotationDirection).updateValue(this.direction);
 
-  debug("Adding Light", this.name);
+  debug(this.name, "Adding", this.name + " light");
   this._light = new Service.Lightbulb(this.name + " light");
   this._light.getCharacteristic(Characteristic.On)
     .on('set', this._lightOn.bind(this));
 
-  if (this.dimmable) {
-    this._light
-      .addCharacteristic(new Characteristic.Brightness())
-      .on('set', this._lightBrightness.bind(this));
-  }
+  // Dimming logic doesn't work for this light
+
+//  if (this.dimmable) {
+//    this._light
+//      .addCharacteristic(new Characteristic.Brightness())
+//      .on('set', this._lightBrightness.bind(this));
+//  }
 
   if (this.start == undefined && this.on_data && this.up_data)
     this.resetDevice();
@@ -148,12 +150,12 @@ RFRemote.prototype._fanOn = function(on, callback) {
   if (on) {
     // Is the fan already on?  Don't repeat command
     if (!this._fan.getCharacteristic(Characteristic.On).value) {
-      this.httpRequest("toggle", this.url, _fanSpeed(this._fan.getCharacteristic(Characteristic.RotationSpeed).value), 1, fanCommands.busy, function(error, response, responseBody) {
+      this.httpRequest("fan on", this.url, _fanSpeed(this._fan.getCharacteristic(Characteristic.RotationSpeed).value), 1, fanCommands.busy, function(error, response, responseBody) {
         if (error) {
           this.log('RFRemote failed: %s', error.message);
           callback(error);
         } else {
-          //  debug('RFRemote succeeded!', this.url);
+          
           callback();
         }
       }.bind(this));
@@ -162,12 +164,12 @@ RFRemote.prototype._fanOn = function(on, callback) {
       callback();
     }
   } else {
-    this.httpRequest("toggle", this.url, fanCommands.fan0, 1, fanCommands.busy, function(error, response, responseBody) {
+    this.httpRequest("fan off", this.url, fanCommands.fan0, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         callback();
       }
     }.bind(this));
@@ -178,12 +180,12 @@ RFRemote.prototype._fanSpeed = function(value, callback) {
 
   if (value > 0) {
     this.log("Setting " + this.name + " _fanSpeed to " + value);
-    this.httpRequest("toggle", this.url, _fanSpeed(value), 1, fanCommands.busy, function(error, response, responseBody) {
+    this.httpRequest("fanSpeed", this.url, _fanSpeed(value), 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         callback();
       }
     }.bind(this));
@@ -202,22 +204,22 @@ RFRemote.prototype._lightOn = function(on, callback) {
 
   if (on) {
 
-    this.httpRequest("toggle", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
+    this.httpRequest("toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         callback();
       }
     }.bind(this));
   } else {
-    this.httpRequest("toggle", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
+    this.httpRequest("toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         callback();
       }
     }.bind(this));
@@ -235,7 +237,7 @@ RFRemote.prototype._fanDirection = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         callback();
       }
     }.bind(this));
@@ -247,7 +249,7 @@ RFRemote.prototype._fanDirection = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         callback();
       }
     }.bind(this));
@@ -285,7 +287,7 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         callback();
       }
     }.bind(this));
@@ -298,7 +300,7 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         callback();
       }
     }.bind(this));
@@ -321,7 +323,7 @@ RFRemote.prototype._setState = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         var current = this._fan.getCharacteristic(Characteristic.RotationSpeed)
           .value;
         if (current != this.start && this.start != undefined) {
@@ -337,7 +339,7 @@ RFRemote.prototype._setState = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-        //  debug('RFRemote succeeded!', this.url);
+
         callback();
       }
     }.bind(this));
@@ -375,7 +377,7 @@ RFRemote.prototype.resetDevice = function() {
 }
 
 RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, callback) {
-  //debug("url",url,"Data",data);
+
   // Content-Length is a workaround for a bug in both request and ESP8266WebServer - request uses lower case, and ESP8266WebServer only uses upper case
 
   //debug("HttpRequest", name, url, count, sleep);
@@ -391,7 +393,7 @@ RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, call
     data[0].rdelay = fanCommands.rdelay;
 
     var body = JSON.stringify(data);
-//    debug("Body", body);
+//    debug("Body", name,body);
     request({
         url: url,
         method: "POST",
@@ -419,8 +421,6 @@ RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, call
 }
 
 function _buildBody(that, command) {
-  // This is the command structure for
-  // debug("This", that);
 
   if (that.direction) {
     debug("CounterClockwise");
@@ -461,7 +461,7 @@ function _buildBody(that, command) {
     "pulse": fanCommands.pulse,
     "pdelay": fanCommands.pdelay
   }];
-  //debug("This is the body", body);
+
   return body;
 }
 
