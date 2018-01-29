@@ -8,9 +8,15 @@
 
 ![ge remote control](https://user-images.githubusercontent.com/19808920/33534890-52a6856a-d878-11e7-9e0d-cb5eace6d625.jpg)
 
-![img_1632](https://user-images.githubusercontent.com/19808920/33534893-555d872c-d878-11e7-9351-683fe568c716.JPG)
-
 I wrote this plugin as a wrapper around mdhiggins ESP8266-HTTP-IR-Blaster to control my GE Ceiling fan. This particular fan uses a 315Mhz RF Remote control with the Model FAN61T-4SP. To use this plugin, you need to build this ESP8266 based IR Blaster device https://github.com/mdhiggins/ESP8266-HTTP-IR-Blaster, except you need to substitute the LED with a 315Mhz RF Transmitter module.
+
+# Circuit Diagram
+
+![Circuit](https://user-images.githubusercontent.com/19808920/35491945-c27b4b8e-0477-11e8-99ad-b183c7408e5e.jpg)
+
+![Schematic](https://user-images.githubusercontent.com/19808920/35491946-c67423c8-0477-11e8-8833-d8db0a61cc9d.jpg)
+
+## Breadboard view
 
 ![img_1611](https://user-images.githubusercontent.com/19808920/33053269-aee42054-ce40-11e7-9c74-7fee8e975782.JPG)
 
