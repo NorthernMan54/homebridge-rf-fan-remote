@@ -136,7 +136,7 @@ RFRemote.prototype.getServices = function() {
 
   informationService
     .setCharacteristic(Characteristic.Manufacturer, "NorthernMan54")
-    .setCharacteristic(Characteristic.Model, this.service)
+    .setCharacteristic(Characteristic.Model, "rf-fan-remote")
     .setCharacteristic(Characteristic.SerialNumber, hostname + "-" + this.name)
     .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version);
 
@@ -155,7 +155,7 @@ RFRemote.prototype._fanOn = function(on, callback) {
           this.log('RFRemote failed: %s', error.message);
           callback(error);
         } else {
-          
+
           callback();
         }
       }.bind(this));
