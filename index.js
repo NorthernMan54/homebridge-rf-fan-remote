@@ -135,7 +135,7 @@ RFRemote.prototype.getServices = function() {
   var informationService = new Service.AccessoryInformation();
 
   informationService
-    .setCharacteristic(Characteristic.Manufacturer, "NorthernMan54")
+    .setCharacteristic(Characteristic.Manufacturer, "rf-fan-remote")
     .setCharacteristic(Characteristic.Model, "rf-fan-remote")
     .setCharacteristic(Characteristic.SerialNumber, hostname + "-" + this.name)
     .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version);
