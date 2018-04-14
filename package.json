@@ -1,6 +1,6 @@
 {
   "name": "homebridge-rf-fan-remote",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "description": "Homebridge Plugin for the FAN61T-4SP 315Mhz Fan Remote",
   "license": "ISC",
   "keywords": [
