@@ -58,7 +58,12 @@ function RFRemote(log, config) {
   this.name = config.name;
 
   this.remote_code = config.remote_code;
-  this.url = config.url;
+  this.irBlaster = config.irBlaster;
+  const dns = require('dns')
+  dns.lookup(this.irBlaster, function(err, result) {
+    this.url = "http://" + result + "/json?simple=1";
+    debug("URL", this.url);
+  }.bind(this));
   this.dimmable = true; // Fan only responds if dimmable = true
   this.direction = config.summer || false;
   this.out = config.out || 1;
@@ -120,11 +125,11 @@ function RFRemote(log, config) {
 
   // Dimming logic doesn't work for this light
 
-//  if (this.dimmable) {
-//    this._light
-//      .addCharacteristic(new Characteristic.Brightness())
-//      .on('set', this._lightBrightness.bind(this));
-//  }
+  //  if (this.dimmable) {
+  //    this._light
+  //      .addCharacteristic(new Characteristic.Brightness())
+  //      .on('set', this._lightBrightness.bind(this));
+  //  }
 
   if (this.start == undefined && this.on_data && this.up_data)
     this.resetDevice();
@@ -393,7 +398,7 @@ RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, call
     data[0].rdelay = fanCommands.rdelay;
 
     var body = JSON.stringify(data);
-//    debug("Body", name,body);
+    //    debug("Body", name,body);
     request({
         url: url,
         method: "POST",

@@ -34,7 +34,7 @@ Example config.json:
 }
   "accessory": "RFRemote",
   "name": "Master",
-  "url": "http://192.168.1.175/json?simple=1",
+  "irBlaster": "ESP_869815",
   "remote_code": "1011100101100100",
   "summer": true
 }
@@ -44,7 +44,7 @@ Example config.json:
 
 * accessory     - This must be "RFRemote"
 * name          - Name of the device
-* url           - URL of the device, including required option simple=1.  Other options can be added ie "http://192.168.1.175/json?simple=1"
+* irBlaster     - Hostname or ip address of your irBlaster device
 * remote_code   - This is the 16 Bit unique code for your fan.
 
 ## Optional settings
