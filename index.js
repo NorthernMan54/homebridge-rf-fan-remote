@@ -17,7 +17,7 @@
 
 var debug = require('debug')('RFRemote');
 var request = require("request");
-var Service, Characteristic;
+var Service, Characteristic, cmdQueue, direction;
 var os = require("os");
 var hostname = os.hostname();
 
@@ -65,7 +65,7 @@ function RFRemote(log, config) {
     debug("URL", this.url);
   }.bind(this));
   this.dimmable = true; // Fan only responds if dimmable = true
-  this.direction = config.summer || false;
+  this.direction = config.winter || false;
   this.out = config.out || 1;
 
   //
@@ -155,7 +155,7 @@ RFRemote.prototype._fanOn = function(on, callback) {
   if (on) {
     // Is the fan already on?  Don't repeat command
     if (!this._fan.getCharacteristic(Characteristic.On).value) {
-      this.httpRequest("fan on", this.url, _fanSpeed(this._fan.getCharacteristic(Characteristic.RotationSpeed).value), 1, fanCommands.busy, function(error, response, responseBody) {
+      execQueue.call(this, "fan on", this.url, _fanSpeed(this._fan.getCharacteristic(Characteristic.RotationSpeed).value), 1, fanCommands.busy, function(error, response, responseBody) {
         if (error) {
           this.log('RFRemote failed: %s', error.message);
           callback(error);
@@ -169,7 +169,7 @@ RFRemote.prototype._fanOn = function(on, callback) {
       callback();
     }
   } else {
-    this.httpRequest("fan off", this.url, fanCommands.fan0, 1, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "fan off", this.url, fanCommands.fan0, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -185,7 +185,7 @@ RFRemote.prototype._fanSpeed = function(value, callback) {
 
   if (value > 0) {
     this.log("Setting " + this.name + " _fanSpeed to " + value);
-    this.httpRequest("fanSpeed", this.url, _fanSpeed(value), 1, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "fanSpeed", this.url, _fanSpeed(value), 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -209,7 +209,7 @@ RFRemote.prototype._lightOn = function(on, callback) {
 
   if (on) {
 
-    this.httpRequest("toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -219,7 +219,7 @@ RFRemote.prototype._lightOn = function(on, callback) {
       }
     }.bind(this));
   } else {
-    this.httpRequest("toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -237,7 +237,7 @@ RFRemote.prototype._fanDirection = function(on, callback) {
 
   if (!on) {
     this.direction = false;
-    this.httpRequest("direction", this.url, fanCommands.reverse, 1, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "direction", this.url, fanCommands.reverse, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -249,7 +249,7 @@ RFRemote.prototype._fanDirection = function(on, callback) {
   } else {
     // counterclockwise
     this.direction = true;
-    this.httpRequest("direction", this.url, fanCommands.forward, 1, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "direction", this.url, fanCommands.forward, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -287,7 +287,7 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
   if (delta < 0) {
     // Turn down device
     this.log("Turning down " + this.name + " by " + Math.abs(delta));
-    this.httpRequest("down", this.url, this.down_data, Math.abs(delta) + this.count, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "down", this.url, this.down_data, Math.abs(delta) + this.count, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -300,7 +300,7 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
 
     // Turn up device
     this.log("Turning up " + this.name + " by " + Math.abs(delta));
-    this.httpRequest("up", this.url, this.up_data, Math.abs(delta) + this.count, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "up", this.url, this.up_data, Math.abs(delta) + this.count, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -323,7 +323,7 @@ RFRemote.prototype._setState = function(on, callback) {
   debug("_setState", this.name, on, this._fan.getCharacteristic(Characteristic.On).value);
 
   if (on && !this._fan.getCharacteristic(Characteristic.On).value) {
-    this.httpRequest("on", this.url, this.on_data, 1, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "on", this.url, this.on_data, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -339,7 +339,7 @@ RFRemote.prototype._setState = function(on, callback) {
       }
     }.bind(this));
   } else if (!on && this._fan.getCharacteristic(Characteristic.On).value) {
-    this.httpRequest("off", this.url, this.off_data, 1, fanCommands.busy, function(error, response, responseBody) {
+    execQueue.call(this, "off", this.url, this.off_data, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
@@ -356,78 +356,107 @@ RFRemote.prototype._setState = function(on, callback) {
 
 RFRemote.prototype.resetDevice = function() {
   debug("Reseting volume on device", this.name);
-  this.httpRequest("on", this.url, this.on_data, 1, fanCommands.busy, function(error, response, responseBody) {
-
-    setTimeout(function() {
-      this.httpRequest("down", this.url, this.down_data, this.steps, fanCommands.busy, function(error, response, responseBody) {
-
-        setTimeout(function() {
-          this.httpRequest("up", this.url, this.up_data, 2, fanCommands.busy, function(error, response, responseBody) {
-
-            setTimeout(function() {
-              this.httpRequest("off", this.url, this.off_data, 1, fanCommands.busy, function(error, response, responseBody) {
-                this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(2);
-              }.bind(this));
-            }.bind(this), fanCommands.busy);
-
-          }.bind(this));
-
-        }.bind(this), this.steps * fanCommands.busy);
-      }.bind(this));
-
-    }.bind(this), fanCommands.busy);
+  execQueue.call(this, "on", this.url, this.on_data, 1, fanCommands.busy);
+  execQueue.call(this, "down", this.url, this.down_data, this.steps, fanCommands.busy);
+  execQueue.call(this, "up", this.url, this.up_data, 2, fanCommands.busy);
+  execQueue.call(this, "off", this.url, this.off_data, 1, fanCommands.busy, function(error, response, responseBody) {
+    this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(2);
   }.bind(this));
-
 
 }
 
-RFRemote.prototype.httpRequest = function(name, url, command, count, sleep, callback) {
+function httpRequest(name, url, command, count, sleep, callback) {
 
   // Content-Length is a workaround for a bug in both request and ESP8266WebServer - request uses lower case, and ESP8266WebServer only uses upper case
 
   //debug("HttpRequest", name, url, count, sleep);
+  var cmdTime = Date.now() + sleep * count;
 
-  //debug("time",Date.now()," ",this.working);
+  var data = _buildBody.call(this, command);
 
-  if (Date.now() > this.working) {
-    //  this.working = Date.now() + sleep * count;
+  data[0].repeat = count;
+  data[0].rdelay = fanCommands.rdelay;
 
-    var data = _buildBody(this, command);
-
-    data[0].repeat = count;
-    data[0].rdelay = fanCommands.rdelay;
-
-    var body = JSON.stringify(data);
-    //    debug("Body", name,body);
-    request({
-        url: url,
-        method: "POST",
-        timeout: 5000,
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': body.length
-        },
-        body: body
+  var body = JSON.stringify(data);
+  //debug("Body", name, body);
+  request({
+      url: url,
+      method: "POST",
+      timeout: 5000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': body.length
       },
-      function(error, response, body) {
-        if (response) {
-          //  debug("Response", response.statusCode, response.statusMessage);
-        } else {
-          debug("Error", name, url, count, sleep, callback, error);
-        }
+      body: body
+    },
+    function(error, response, body) {
+      if (response) {
+        //  debug("Response", response.statusCode, response.statusMessage);
+      } else {
+        debug("Error", name, url, count, sleep, callback, error);
+      }
 
+      setTimeout(function() {
         if (callback) callback(error, response, body);
-      }.bind(this));
+      }, cmdTime - Date.now());
+    }.bind(this));
 
-  } else {
-    debug("NODEMCU is busy", name);
-    if (callback) callback(new Error("Device Busy"));
-  }
 }
 
-function _buildBody(that, command) {
+cmdQueue = {
+  items: [],
+  isRunning: false
+};
 
-  if (that.direction) {
+function execQueue() {
+
+  // push these args to the end of the queue
+
+  cmdQueue.items.push([this, arguments]);
+
+  // run the queue
+  runQueue();
+
+}
+
+function runQueue() {
+
+  if (!cmdQueue.isRunning && cmdQueue.items.length > 0) {
+
+    cmdQueue.isRunning = true;
+    var cmds = cmdQueue.items.shift();
+    var that = cmds[0];
+    var args = cmds[1];
+    if (args.length > 5) {
+
+      // wrap callback with another function to toggle isRunning
+      var callback = args[args.length - 1];
+      args[args.length - 1] = function() {
+
+        callback.apply(null, arguments);
+        cmdQueue.isRunning = false;
+        runQueue();
+
+      };
+
+    } else {
+
+      // add callback to toggle isRunning
+      args[args.length] = function() {
+        cmdQueue.isRunning = false;
+        runQueue();
+      };
+      args.length = args.length + 1;
+    }
+    httpRequest.apply(that, args);
+
+  }
+
+}
+
+function _buildBody(command) {
+
+  if (this.direction) {
     debug("CounterClockwise");
     var direction = fanCommands.winter;
   } else {
@@ -435,8 +464,8 @@ function _buildBody(that, command) {
     var direction = fanCommands.summer;
   }
 
-  var remoteCommand = "0" + direction + that.remote_code + fanCommands.dimmable + command;
-  debug("This is the command", _splitAt8(remoteCommand));
+  var remoteCommand = "0" + direction + this.remote_code + fanCommands.dimmable + command;
+  //debug("This is the command", _splitAt8(remoteCommand));
 
   var data = [];
   data.push(fanCommands.header);
@@ -453,14 +482,14 @@ function _buildBody(that, command) {
         }
         break;
       default:
-        that.log("Missing 1 or 0", remoteCommand);
+        this.log("Missing 1 or 0", remoteCommand);
         break;
     }
   }
 
   var body = [{
     "type": "raw",
-    "out": that.out,
+    "out": this.out,
     "khz": 500,
     "data": data,
     "pulse": fanCommands.pulse,
