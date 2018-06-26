@@ -207,8 +207,18 @@ RFRemote.prototype._lightOn = function(on, callback) {
 
   this.log("Setting " + this.name + " _lightOn to " + on);
 
-  if (on) {
+  if (on && !this._light.getCharacteristic(Characteristic.On).value) {
 
+    execQueue.call(this, "toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
+      if (error) {
+        this.log('RFRemote failed: %s', error.message);
+        callback(error);
+      } else {
+
+        callback();
+      }
+    }.bind(this));
+  } else if (!on && this._light.getCharacteristic(Characteristic.On).value) {
     execQueue.call(this, "toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
@@ -219,15 +229,8 @@ RFRemote.prototype._lightOn = function(on, callback) {
       }
     }.bind(this));
   } else {
-    execQueue.call(this, "toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
-      if (error) {
-        this.log('RFRemote failed: %s', error.message);
-        callback(error);
-      } else {
-
-        callback();
-      }
-    }.bind(this));
+    debug("Do nothing");
+    callback();
   }
 }
 
