@@ -12,7 +12,6 @@
 // Winter = Clockwise = 0
 // Summer = CounterClockwise = 1
 
-
 "use strict";
 
 var debug = require('debug')('RFRemote');
@@ -20,6 +19,7 @@ var request = require("request");
 var Service, Characteristic, cmdQueue, direction;
 var os = require("os");
 var hostname = os.hostname();
+const dns = require('dns');
 
 var fanCommands = {
   fan0: "111101",
@@ -59,11 +59,9 @@ function RFRemote(log, config) {
 
   this.remote_code = config.remote_code;
   this.irBlaster = config.irBlaster;
-  const dns = require('dns')
-  dns.lookup(this.irBlaster, function(err, result) {
-    this.url = "http://" + result + "/json?simple=1";
-    debug("URL", this.url);
-  }.bind(this));
+
+  findDevice.call(this);
+
   this.dimmable = true; // Fan only responds if dimmable = true
   this.direction = config.winter || false;
   this.out = config.out || 1;
@@ -130,10 +128,6 @@ function RFRemote(log, config) {
   //      .addCharacteristic(new Characteristic.Brightness())
   //      .on('set', this._lightBrightness.bind(this));
   //  }
-
-  if (this.start == undefined && this.on_data && this.up_data)
-    this.resetDevice();
-
 }
 
 RFRemote.prototype.getServices = function() {
@@ -146,10 +140,9 @@ RFRemote.prototype.getServices = function() {
     .setCharacteristic(Characteristic.FirmwareRevision, require('./package.json').version);
 
   return [this._fan, this._light, informationService];
-}
+};
 
 RFRemote.prototype._fanOn = function(on, callback) {
-
   this.log("Setting " + this.name + " _fanOn to " + on);
 
   if (on) {
@@ -160,7 +153,6 @@ RFRemote.prototype._fanOn = function(on, callback) {
           this.log('RFRemote failed: %s', error.message);
           callback(error);
         } else {
-
           callback();
         }
       }.bind(this));
@@ -174,15 +166,13 @@ RFRemote.prototype._fanOn = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         callback();
       }
     }.bind(this));
   }
-}
+};
 
 RFRemote.prototype._fanSpeed = function(value, callback) {
-
   if (value > 0) {
     this.log("Setting " + this.name + " _fanSpeed to " + value);
     execQueue.call(this, "fanSpeed", this.url, _fanSpeed(value), 1, fanCommands.busy, function(error, response, responseBody) {
@@ -190,7 +180,6 @@ RFRemote.prototype._fanSpeed = function(value, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         callback();
       }
     }.bind(this));
@@ -201,20 +190,17 @@ RFRemote.prototype._fanSpeed = function(value, callback) {
     }.bind(this), 100);
     callback();
   }
-}
+};
 
 RFRemote.prototype._lightOn = function(on, callback) {
-
   this.log("Setting " + this.name + " _lightOn to " + on);
 
   if (on && !this._light.getCharacteristic(Characteristic.On).value) {
-
     execQueue.call(this, "toggle light", this.url, fanCommands.light, 1, fanCommands.busy, function(error, response, responseBody) {
       if (error) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         callback();
       }
     }.bind(this));
@@ -224,7 +210,6 @@ RFRemote.prototype._lightOn = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         callback();
       }
     }.bind(this));
@@ -232,10 +217,9 @@ RFRemote.prototype._lightOn = function(on, callback) {
     debug("Do nothing");
     callback();
   }
-}
+};
 
 RFRemote.prototype._fanDirection = function(on, callback) {
-
   this.log("Setting " + this.name + " _summerSetting to " + on);
 
   if (!on) {
@@ -245,7 +229,6 @@ RFRemote.prototype._fanDirection = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         callback();
       }
     }.bind(this));
@@ -257,26 +240,25 @@ RFRemote.prototype._fanDirection = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         callback();
       }
     }.bind(this));
   }
-}
+};
 
 RFRemote.prototype._lightBrightness = function(value, callback) {
-
-  //debug("Device", this._fan);
+  // debug("Device", this._fan);
 
   this.log("Setting " + this.name + " _lightBrightness to " + value);
 
   var current = this._fan.getCharacteristic(Characteristic.RotationSpeed)
     .value;
 
-  if (current == undefined)
+  if (current === undefined) {
     current = this.start;
+  }
 
-  if (value == 100 && current == 0) {
+  if (value === 100 && current === 0) {
     callback(null, current);
     return;
   }
@@ -295,12 +277,10 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         callback();
       }
     }.bind(this));
   } else if (delta > 0) {
-
     // Turn up device
     this.log("Turning up " + this.name + " by " + Math.abs(delta));
     execQueue.call(this, "up", this.url, this.up_data, Math.abs(delta) + this.count, fanCommands.busy, function(error, response, responseBody) {
@@ -308,19 +288,16 @@ RFRemote.prototype._lightBrightness = function(value, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         callback();
       }
     }.bind(this));
-
   } else {
     this.log("Not controlling " + this.name, value, current, delta);
     callback();
   }
-}
+};
 
 RFRemote.prototype._setState = function(on, callback) {
-
   this.log("Turning " + this.name + " to " + on);
 
   debug("_setState", this.name, on, this._fan.getCharacteristic(Characteristic.On).value);
@@ -331,10 +308,9 @@ RFRemote.prototype._setState = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         var current = this._fan.getCharacteristic(Characteristic.RotationSpeed)
           .value;
-        if (current != this.start && this.start != undefined) {
+        if (current !== this.start && this.start !== undefined) {
           debug("Setting level after turning on ", this.start);
           this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(this.start);
         }
@@ -347,7 +323,6 @@ RFRemote.prototype._setState = function(on, callback) {
         this.log('RFRemote failed: %s', error.message);
         callback(error);
       } else {
-
         callback();
       }
     }.bind(this));
@@ -355,7 +330,7 @@ RFRemote.prototype._setState = function(on, callback) {
     debug("Do nothing");
     callback();
   }
-}
+};
 
 RFRemote.prototype.resetDevice = function() {
   debug("Reseting volume on device", this.name);
@@ -365,14 +340,12 @@ RFRemote.prototype.resetDevice = function() {
   execQueue.call(this, "off", this.url, this.off_data, 1, fanCommands.busy, function(error, response, responseBody) {
     this._fan.getCharacteristic(Characteristic.RotationSpeed).updateValue(2);
   }.bind(this));
-
-}
+};
 
 function httpRequest(name, url, command, count, sleep, callback) {
-
   // Content-Length is a workaround for a bug in both request and ESP8266WebServer - request uses lower case, and ESP8266WebServer only uses upper case
 
-  //debug("HttpRequest", name, url, count, sleep);
+  // debug("HttpRequest", name, url, count, sleep);
   var cmdTime = Date.now() + sleep * count;
 
   var data = _buildBody.call(this, command);
@@ -403,7 +376,6 @@ function httpRequest(name, url, command, count, sleep, callback) {
         if (callback) callback(error, response, body);
       }, cmdTime - Date.now());
     }.bind(this));
-
 }
 
 cmdQueue = {
@@ -412,38 +384,29 @@ cmdQueue = {
 };
 
 function execQueue() {
-
   // push these args to the end of the queue
 
   cmdQueue.items.push([this, arguments]);
 
   // run the queue
   runQueue();
-
 }
 
 function runQueue() {
-
   if (!cmdQueue.isRunning && cmdQueue.items.length > 0) {
-
     cmdQueue.isRunning = true;
     var cmds = cmdQueue.items.shift();
     var that = cmds[0];
     var args = cmds[1];
     if (args.length > 5) {
-
       // wrap callback with another function to toggle isRunning
       var callback = args[args.length - 1];
       args[args.length - 1] = function() {
-
         callback.apply(null, arguments);
         cmdQueue.isRunning = false;
         runQueue();
-
       };
-
     } else {
-
       // add callback to toggle isRunning
       args[args.length] = function() {
         cmdQueue.isRunning = false;
@@ -452,13 +415,10 @@ function runQueue() {
       args.length = args.length + 1;
     }
     httpRequest.apply(that, args);
-
   }
-
 }
 
 function _buildBody(command) {
-
   if (this.direction) {
     debug("CounterClockwise");
     var direction = fanCommands.winter;
@@ -468,7 +428,7 @@ function _buildBody(command) {
   }
 
   var remoteCommand = "0" + direction + this.remote_code + fanCommands.dimmable + command;
-  //debug("This is the command", _splitAt8(remoteCommand));
+  // debug("This is the command", _splitAt8(remoteCommand));
 
   var data = [];
   data.push(fanCommands.header);
@@ -533,4 +493,23 @@ function _fanSpeed(speed) {
       break;
   }
   return command;
+}
+
+function findDevice() {
+  dns.lookup(this.irBlaster, function(err, result) {
+    if (err || result === undefined) {
+      // if failed, retry device discovery every minute
+      debug("WARNING: DNS lookup failed", err, result);
+      this.log("WARNING: DNS name resolution of %s failed, retrying in 1 minute", this.irBlaster);
+      setTimeout(function() {
+        findDevice.call(this);
+      }.bind(this), 60 * 1000);
+    } else {
+      this.url = "http://" + result + "/json?simple=1";
+      debug("URL", this.url);
+      if (this.start === undefined && this.on_data && this.up_data) {
+        this.resetDevice();
+      }
+    }
+  }.bind(this));
 }
