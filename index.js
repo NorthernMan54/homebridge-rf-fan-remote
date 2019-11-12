@@ -354,28 +354,36 @@ function httpRequest(name, url, command, count, sleep, callback) {
   data[0].rdelay = fanCommands.rdelay;
 
   var body = JSON.stringify(data);
-  //debug("Body", name, body);
-  request({
-      url: url,
-      method: "POST",
-      timeout: 5000,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': body.length
+  var that = this;
+  if (this.url) {
+    //debug("Body", name, body);
+    request({
+        url: url,
+        method: "POST",
+        timeout: 5000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': body.length
+        },
+        body: body
       },
-      body: body
-    },
-    function(error, response, body) {
-      if (response) {
-        //  debug("Response", response.statusCode, response.statusMessage);
-      } else {
-        debug("Error", name, url, count, sleep, callback, error);
-      }
+      function(error, response, body) {
+        if (response) {
+          //  debug("Response", response.statusCode, response.statusMessage);
+        } else {
+          debug("Error", name, url, count, sleep, callback, error);
+          that.url = null;
+          // debug("Error - this", that);
+          findDevice.call(that);
+        }
 
-      setTimeout(function() {
-        if (callback) callback(error, response, body);
-      }, cmdTime - Date.now());
-    }.bind(this));
+        setTimeout(function() {
+          if (callback) callback(error, response, body);
+        }, cmdTime - Date.now());
+      })
+  } else {
+    callback(new Error("Unknown host " + this.irBlaster), "", "");
+  }
 }
 
 cmdQueue = {
@@ -496,17 +504,18 @@ function _fanSpeed(speed) {
 }
 
 function findDevice() {
+  debug("findDevice(%s)", this.irBlaster);
   dns.lookup(this.irBlaster, function(err, result) {
     if (err || result === undefined) {
       // if failed, retry device discovery every minute
-      debug("WARNING: DNS lookup failed", err, result);
+      debug("WARNING: Dns lookup failed", err, result);
       this.log("WARNING: DNS name resolution of %s failed, retrying in 1 minute", this.irBlaster);
       setTimeout(function() {
         findDevice.call(this);
       }.bind(this), 60 * 1000);
     } else {
       this.url = "http://" + result + "/json?simple=1";
-      debug("URL", this.url);
+      debug("findDevice(%s) ==> %s", this.irBlaster, this.url);
       if (this.start === undefined && this.on_data && this.up_data) {
         this.resetDevice();
       }
