@@ -63,7 +63,7 @@ function RFRemote(log, config) {
   findDevice.call(this);
 
   this.dimmable = true; // Fan only responds if dimmable = true
-  this.direction = config.winter || false;
+  this.direction = config.summer || true; // Winter should be clockwise
   this.out = config.out || 1;
 
   //
@@ -428,11 +428,11 @@ function runQueue() {
 
 function _buildBody(command) {
   if (this.direction) {
-    debug("CounterClockwise");
-    var direction = fanCommands.winter;
-  } else {
-    debug("Clockwise");
+    debug("CounterClockwise"); // Summer
     var direction = fanCommands.summer;
+  } else {
+    debug("Clockwise"); // Winter
+    var direction = fanCommands.winter;
   }
 
   var remoteCommand = "0" + direction + this.remote_code + fanCommands.dimmable + command;

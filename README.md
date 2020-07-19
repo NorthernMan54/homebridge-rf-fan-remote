@@ -49,7 +49,7 @@ Example config.json:
 
 ## Optional settings
 
-* summer   - Is the summer in winter mode, defaults to true
+* summer   - Is the fan in summer mode, defaults to true
 * out      - out setting for IR Blaster, defaults to 1
 
 # Finding remote code for your remote / fan
